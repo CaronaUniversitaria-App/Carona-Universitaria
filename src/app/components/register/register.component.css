@@ -29,13 +29,14 @@ body {
 .logo img {
   display: block;
   margin: 0 auto;
-  width: 100px;
+  width: 200px;
 }
 
 h2 {
   text-align: center;
   margin: 20px 0;
-  color: #333;
+  color: #a09c9c;
+  font-size: 15px;
 }
 
 .login-form {
@@ -83,7 +84,6 @@ h2 {
 
 .signup-btn {
   color: white;
-  padding: 12px;
   font-size: 16px;
   border: none;
   border-radius: 5px;
@@ -91,13 +91,9 @@ h2 {
   transition: background-color 0.3s;
 }
 
-.signup-btn:hover {
-  background-color: #a9b1aa;
-}
-
 .signup a {
   text-decoration: none;
-  color: #1b61e4;
+  color: #030303;
   text-decoration: underline;
 }
 

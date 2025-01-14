@@ -75,6 +75,8 @@ h2 {
 
 .forgot-password a:hover {
   text-decoration: underline;
+  color: #218838;
+  font-weight: bold;
 }
 
 .login-btn {
@@ -92,11 +94,6 @@ h2 {
   background-color: #218838;
 }
 
-.signup {
-  text-align: center;
-  margin-top: 20px;
-}
-
 .signup-btn {
   background-color: #28a745;
   color: white;
@@ -106,6 +103,8 @@ h2 {
   border-radius: 5px;
   cursor: pointer;
   transition: background-color 0.3s;
+  text-align: center;
+  margin-top: 20px;
 }
 
 .signup-btn:hover {
