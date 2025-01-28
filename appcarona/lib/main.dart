@@ -228,6 +228,18 @@ class MainScreen extends StatelessWidget {
               },
             ),
             ListTile(
+  leading: const Icon(Icons.history),
+  title: const Text('Histórico de Caronas'),
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const RideHistoryPage(),
+      ),
+    );
+  },
+),
+            ListTile(
               leading: const Icon(Icons.exit_to_app),
               title: const Text('Logout'),
               onTap: () {
@@ -640,6 +652,32 @@ class _RideListPageState extends State<RideListPage> {
     }
   }
 
+  Future<void> cancelRide(Map<String, dynamic> ride) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && ride['userId'] == user.uid) {
+      final DatabaseReference ridesRef = FirebaseDatabase.instance.ref().child('rides');
+      final DatabaseReference historyRef = FirebaseDatabase.instance.ref().child('history');
+
+      // Mover a carona para o histórico
+      await historyRef.child(ride['userId']).child(ride['rideId']).set({
+        ...ride,
+        'status': 'canceled', // Adicionar status de cancelada
+      });
+
+      // Remover a carona da lista de caronas ativas
+      await ridesRef.child(ride['userId']).child(ride['rideId']).remove();
+
+      // Atualizar a lista de caronas
+      setState(() {
+        rides.removeWhere((r) => r['rideId'] == ride['rideId']);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Carona para ${ride['destination']} cancelada com sucesso!')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -656,16 +694,98 @@ class _RideListPageState extends State<RideListPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Vagas: ${ride['seats']}'),
-                Text('Ponto de Paradas: ${ride['stops']}'),
+                Text('Paradas: ${ride['stops']}'),
                 Text('Oferecido por: ${ride['userName']}'),
               ],
             ),
             trailing: isCurrentUserRide
-                ? null // Não exibe botão se for a carona do próprio usuário
+                ? ElevatedButton(
+                    onPressed: () => cancelRide(ride),
+                    child: const Text('Cancelar Carona'),
+                  )
                 : ElevatedButton(
                     onPressed: () => acceptRide(ride),
                     child: const Text('Aceitar Carona'),
                   ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class RideHistoryPage extends StatefulWidget {
+  const RideHistoryPage({super.key});
+
+  @override
+  _RideHistoryPageState createState() => _RideHistoryPageState();
+}
+
+class _RideHistoryPageState extends State<RideHistoryPage> {
+  List<Map<String, dynamic>> historyRides = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadHistory();
+  }
+
+  Future<void> loadHistory() async {
+    final DatabaseReference historyRef = FirebaseDatabase.instance.ref().child('history');
+    final DatabaseReference usersRef = FirebaseDatabase.instance.ref().child('users');
+
+    final DataSnapshot historySnapshot = await historyRef.get();
+
+    if (historySnapshot.exists) {
+      final Map<dynamic, dynamic> historyMap = historySnapshot.value as Map<dynamic, dynamic>;
+      final List<Map<String, dynamic>> loadedHistory = [];
+
+      for (var userId in historyMap.keys) {
+        final userHistory = historyMap[userId];
+        if (userHistory != null) {
+          final Map<dynamic, dynamic> userHistoryMap = userHistory as Map<dynamic, dynamic>;
+
+          // Buscar o nome do usuário
+          final DataSnapshot userSnapshot = await usersRef.child(userId).get();
+          final String userName = userSnapshot.child('name').value as String? ?? 'Usuário Desconhecido';
+
+          for (var rideId in userHistoryMap.keys) {
+            final rideData = userHistoryMap[rideId];
+            loadedHistory.add({
+              'userId': userId,
+              'rideId': rideId,
+              'userName': userName, // Adicionar o nome do usuário
+              ...Map<String, dynamic>.from(rideData as Map),
+            });
+          }
+        }
+      }
+
+      setState(() {
+        historyRides = loadedHistory;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Histórico de Caronas')),
+      body: ListView.builder(
+        itemCount: historyRides.length,
+        itemBuilder: (context, index) {
+          final ride = historyRides[index];
+          return ListTile(
+            title: Text('Destino: ${ride['destination']}'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Vagas: ${ride['seats']}'),
+                Text('Paradas: ${ride['stops']}'),
+                Text('Oferecido por: ${ride['userName']}'),
+                Text('Status: ${ride['status']}'),
+              ],
+            ),
           );
         },
       ),
