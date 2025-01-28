@@ -58,7 +58,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     // Verificar se o e-mail termina com "@ufba.br"
-    if (user != null && user!.email!.endsWith('@ufba.br')) {
+    if (user != null && user!.email!.endsWith('@gmail.com')) {
       // Redireciona para a tela principal
       Navigator.pushReplacement(
         context,
@@ -464,11 +464,11 @@ class RideOfferPage extends StatefulWidget {
 
 class _RideOfferPageState extends State<RideOfferPage> {
   final TextEditingController destinationController = TextEditingController();
-  final TextEditingController seatsController = TextEditingController();
   final TextEditingController stopsController = TextEditingController();
 
   List<Map<String, String>> cars = [];
   String? selectedCar;
+  String? selectedSeats; // Para armazenar o valor selecionado no dropdown
 
   @override
   void initState() {
@@ -527,11 +527,23 @@ class _RideOfferPageState extends State<RideOfferPage> {
               controller: destinationController,
               decoration: const InputDecoration(labelText: 'Destino'),
             ),
-            TextField(
-              controller: seatsController,
+            const SizedBox(height: 20),
+            DropdownButtonFormField<String>(
+              value: selectedSeats,
+              items: List.generate(8, (index) {
+                return DropdownMenuItem(
+                  value: index.toString(),
+                  child: Text('$index vagas'),
+                );
+              }),
+              onChanged: (value) {
+                setState(() {
+                  selectedSeats = value;
+                });
+              },
               decoration: const InputDecoration(labelText: 'Vagas Disponíveis'),
-              keyboardType: TextInputType.number,
             ),
+            const SizedBox(height: 20),
             TextField(
               controller: stopsController,
               decoration: const InputDecoration(labelText: 'Pontos de Parada'),
@@ -541,14 +553,14 @@ class _RideOfferPageState extends State<RideOfferPage> {
               onPressed: () async {
                 final user = FirebaseAuth.instance.currentUser;
 
-                if (user != null && selectedCar != null) {
+                if (user != null && selectedCar != null && selectedSeats != null) {
                   final DatabaseReference ridesRef =
                       FirebaseDatabase.instance.ref().child('rides').child(user.uid);
 
                   await ridesRef.push().set({
                     'carKey': selectedCar,
                     'destination': destinationController.text,
-                    'seats': seatsController.text,
+                    'seats': selectedSeats,
                     'stops': stopsController.text,
                     'timestamp': DateTime.now().toIso8601String(),
                   });
@@ -560,13 +572,13 @@ class _RideOfferPageState extends State<RideOfferPage> {
                   // Limpar campos após oferecer a carona
                   setState(() {
                     destinationController.clear();
-                    seatsController.clear();
                     stopsController.clear();
                     selectedCar = null;
+                    selectedSeats = null;
                   });
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Por favor, selecione um automóvel.')),
+                    const SnackBar(content: Text('Por favor, preencha todos os campos.')),
                   );
                 }
               },
@@ -578,6 +590,7 @@ class _RideOfferPageState extends State<RideOfferPage> {
     );
   }
 }
+
 
 class RideListPage extends StatefulWidget {
   const RideListPage({super.key});
