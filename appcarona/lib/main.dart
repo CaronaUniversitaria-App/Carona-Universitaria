@@ -58,7 +58,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     // Verificar se o e-mail termina com "@ufba.br"
-    if (user != null && user!.email!.endsWith('@ufba.br')) {
+    if (user != null && user!.email!.endsWith('@gmail.com')) {
       // Redireciona para a tela principal
       Navigator.pushReplacement(
         context,
@@ -464,11 +464,11 @@ class RideOfferPage extends StatefulWidget {
 
 class _RideOfferPageState extends State<RideOfferPage> {
   final TextEditingController destinationController = TextEditingController();
-  final TextEditingController seatsController = TextEditingController();
   final TextEditingController stopsController = TextEditingController();
 
   List<Map<String, String>> cars = [];
   String? selectedCar;
+  String? selectedSeats; // Para armazenar o valor selecionado no dropdown
 
   @override
   void initState() {
@@ -527,11 +527,23 @@ class _RideOfferPageState extends State<RideOfferPage> {
               controller: destinationController,
               decoration: const InputDecoration(labelText: 'Destino'),
             ),
-            TextField(
-              controller: seatsController,
+            const SizedBox(height: 20),
+            DropdownButtonFormField<String>(
+              value: selectedSeats,
+              items: List.generate(8, (index) {
+                return DropdownMenuItem(
+                  value: index.toString(),
+                  child: Text('$index vagas'),
+                );
+              }),
+              onChanged: (value) {
+                setState(() {
+                  selectedSeats = value;
+                });
+              },
               decoration: const InputDecoration(labelText: 'Vagas Disponíveis'),
-              keyboardType: TextInputType.number,
             ),
+            const SizedBox(height: 20),
             TextField(
               controller: stopsController,
               decoration: const InputDecoration(labelText: 'Pontos de Parada'),
@@ -541,14 +553,14 @@ class _RideOfferPageState extends State<RideOfferPage> {
               onPressed: () async {
                 final user = FirebaseAuth.instance.currentUser;
 
-                if (user != null && selectedCar != null) {
+                if (user != null && selectedCar != null && selectedSeats != null) {
                   final DatabaseReference ridesRef =
                       FirebaseDatabase.instance.ref().child('rides').child(user.uid);
 
                   await ridesRef.push().set({
                     'carKey': selectedCar,
                     'destination': destinationController.text,
-                    'seats': seatsController.text,
+                    'seats': selectedSeats,
                     'stops': stopsController.text,
                     'timestamp': DateTime.now().toIso8601String(),
                   });
@@ -560,13 +572,13 @@ class _RideOfferPageState extends State<RideOfferPage> {
                   // Limpar campos após oferecer a carona
                   setState(() {
                     destinationController.clear();
-                    seatsController.clear();
                     stopsController.clear();
                     selectedCar = null;
+                    selectedSeats = null;
                   });
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Por favor, selecione um automóvel.')),
+                    const SnackBar(content: Text('Por favor, preencha todos os campos.')),
                   );
                 }
               },
@@ -578,6 +590,7 @@ class _RideOfferPageState extends State<RideOfferPage> {
     );
   }
 }
+
 
 class RideListPage extends StatefulWidget {
   const RideListPage({super.key});
@@ -723,6 +736,7 @@ class RideHistoryPage extends StatefulWidget {
 
 class _RideHistoryPageState extends State<RideHistoryPage> {
   List<Map<String, dynamic>> historyRides = [];
+  final User? currentUser = FirebaseAuth.instance.currentUser; // Usuário logado
 
   @override
   void initState() {
@@ -731,39 +745,26 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
   }
 
   Future<void> loadHistory() async {
-    final DatabaseReference historyRef = FirebaseDatabase.instance.ref().child('history');
-    final DatabaseReference usersRef = FirebaseDatabase.instance.ref().child('users');
+    if (currentUser != null) {
+      final DatabaseReference historyRef =
+          FirebaseDatabase.instance.ref().child('history').child(currentUser!.uid);
 
-    final DataSnapshot historySnapshot = await historyRef.get();
+      final DataSnapshot historySnapshot = await historyRef.get();
 
-    if (historySnapshot.exists) {
-      final Map<dynamic, dynamic> historyMap = historySnapshot.value as Map<dynamic, dynamic>;
-      final List<Map<String, dynamic>> loadedHistory = [];
+      if (historySnapshot.exists) {
+        final Map<dynamic, dynamic> historyMap =
+            historySnapshot.value as Map<dynamic, dynamic>;
+        final List<Map<String, dynamic>> loadedHistory = historyMap.entries.map((entry) {
+          return {
+            'rideId': entry.key,
+            ...Map<String, dynamic>.from(entry.value as Map),
+          };
+        }).toList();
 
-      for (var userId in historyMap.keys) {
-        final userHistory = historyMap[userId];
-        if (userHistory != null) {
-          final Map<dynamic, dynamic> userHistoryMap = userHistory as Map<dynamic, dynamic>;
-
-          // Buscar o nome do usuário
-          final DataSnapshot userSnapshot = await usersRef.child(userId).get();
-          final String userName = userSnapshot.child('name').value as String? ?? 'Usuário Desconhecido';
-
-          for (var rideId in userHistoryMap.keys) {
-            final rideData = userHistoryMap[rideId];
-            loadedHistory.add({
-              'userId': userId,
-              'rideId': rideId,
-              'userName': userName, // Adicionar o nome do usuário
-              ...Map<String, dynamic>.from(rideData as Map),
-            });
-          }
-        }
+        setState(() {
+          historyRides = loadedHistory;
+        });
       }
-
-      setState(() {
-        historyRides = loadedHistory;
-      });
     }
   }
 
@@ -771,27 +772,34 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Histórico de Caronas')),
-      body: ListView.builder(
-        itemCount: historyRides.length,
-        itemBuilder: (context, index) {
-          final ride = historyRides[index];
-          return ListTile(
-            title: Text('Destino: ${ride['destination']}'),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Vagas: ${ride['seats']}'),
-                Text('Paradas: ${ride['stops']}'),
-                Text('Oferecido por: ${ride['userName']}'),
-                Text('Status: ${ride['status']}'),
-              ],
+      body: historyRides.isEmpty
+          ? const Center(
+              child: Text(
+                'Nenhuma carona no histórico.',
+                style: TextStyle(fontSize: 16),
+              ),
+            )
+          : ListView.builder(
+              itemCount: historyRides.length,
+              itemBuilder: (context, index) {
+                final ride = historyRides[index];
+                return ListTile(
+                  title: Text('Destino: ${ride['destination']}'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Vagas: ${ride['seats']}'),
+                      Text('Paradas: ${ride['stops']}'),
+                      Text('Status: ${ride['status']}'),
+                    ],
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 }
+
 
 
 class CarManagementPage extends StatefulWidget {
