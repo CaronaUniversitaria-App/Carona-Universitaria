@@ -216,6 +216,18 @@ class MainScreen extends StatelessWidget {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.list),
+              title: const Text('Caronas Disponíveis'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const RideListPage(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.exit_to_app),
               title: const Text('Logout'),
               onTap: () {
@@ -550,6 +562,112 @@ class _RideOfferPageState extends State<RideOfferPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class RideListPage extends StatefulWidget {
+  const RideListPage({super.key});
+
+  @override
+  _RideListPageState createState() => _RideListPageState();
+}
+
+class _RideListPageState extends State<RideListPage> {
+  List<Map<String, dynamic>> rides = [];
+  final User? currentUser = FirebaseAuth.instance.currentUser; // Usuário logado
+
+  @override
+  void initState() {
+    super.initState();
+    loadRides();
+  }
+
+  Future<void> loadRides() async {
+    final DatabaseReference ridesRef = FirebaseDatabase.instance.ref().child('rides');
+    final DatabaseReference usersRef = FirebaseDatabase.instance.ref().child('users');
+
+    final DataSnapshot ridesSnapshot = await ridesRef.get();
+
+    if (ridesSnapshot.exists) {
+      final Map<dynamic, dynamic> ridesMap = ridesSnapshot.value as Map<dynamic, dynamic>;
+      final List<Map<String, dynamic>> loadedRides = [];
+
+      for (var userId in ridesMap.keys) {
+        final userRides = ridesMap[userId];
+        if (userRides != null) {
+          final Map<dynamic, dynamic> userRidesMap = userRides as Map<dynamic, dynamic>;
+
+          // Buscar o nome do usuário
+          final DataSnapshot userSnapshot = await usersRef.child(userId).get();
+          final String userName = userSnapshot.child('name').value as String? ?? 'Usuário Desconhecido';
+
+          for (var rideId in userRidesMap.keys) {
+            final rideData = userRidesMap[rideId];
+            loadedRides.add({
+              'userId': userId,
+              'rideId': rideId,
+              'userName': userName, // Adicionar o nome do usuário
+              ...Map<String, dynamic>.from(rideData as Map),
+            });
+          }
+        }
+      }
+
+      setState(() {
+        rides = loadedRides;
+      });
+    }
+  }
+
+  Future<void> acceptRide(Map<String, dynamic> ride) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // Adicionar o ID do usuário que aceitou a carona
+      final DatabaseReference rideRef = FirebaseDatabase.instance
+          .ref()
+          .child('rides')
+          .child(ride['userId'])
+          .child(ride['rideId'])
+          .child('acceptedBy');
+
+      await rideRef.set(user.uid);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Você aceitou a carona para ${ride['destination']}')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Caronas Disponíveis')),
+      body: ListView.builder(
+        itemCount: rides.length,
+        itemBuilder: (context, index) {
+          final ride = rides[index];
+          final isCurrentUserRide = ride['userId'] == currentUser?.uid; // Verifica se a carona é do próprio usuário
+
+          return ListTile(
+            title: Text('Destino: ${ride['destination']}'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Vagas: ${ride['seats']}'),
+                Text('Ponto de Paradas: ${ride['stops']}'),
+                Text('Oferecido por: ${ride['userName']}'),
+              ],
+            ),
+            trailing: isCurrentUserRide
+                ? null // Não exibe botão se for a carona do próprio usuário
+                : ElevatedButton(
+                    onPressed: () => acceptRide(ride),
+                    child: const Text('Aceitar Carona'),
+                  ),
+          );
+        },
       ),
     );
   }
