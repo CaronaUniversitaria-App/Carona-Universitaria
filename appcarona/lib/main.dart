@@ -58,7 +58,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     // Verificar se o e-mail termina com "@ufba.br"
-    if (user != null && user!.email!.endsWith('@gmail.com')) {
+    if (user != null && user!.email!.endsWith('@ufba.br')) {
       // Redireciona para a tela principal
       Navigator.pushReplacement(
         context,
@@ -238,7 +238,18 @@ class MainScreen extends StatelessWidget {
       ),
     );
   },
-),
+),ListTile(
+        leading: const Icon(Icons.chat),
+        title: const Text('Chat'),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ChatPage(),
+            ),
+          );
+        },
+      ),
             ListTile(
               leading: const Icon(Icons.exit_to_app),
               title: const Text('Logout'),
@@ -465,15 +476,17 @@ class RideOfferPage extends StatefulWidget {
 class _RideOfferPageState extends State<RideOfferPage> {
   final TextEditingController destinationController = TextEditingController();
   final TextEditingController stopsController = TextEditingController();
+  final TextEditingController departureLocationController = TextEditingController(); // Novo campo: Local de saída
+  final TextEditingController departureTimeController = TextEditingController(); // Novo campo: Horário
 
   List<Map<String, String>> cars = [];
   String? selectedCar;
-  String? selectedSeats; // Para armazenar o valor selecionado no dropdown
+  String? selectedSeats;
 
   @override
   void initState() {
     super.initState();
-    loadCars(); // Carregar os automóveis do Firebase
+    loadCars();
   }
 
   Future<void> loadCars() async {
@@ -507,6 +520,7 @@ class _RideOfferPageState extends State<RideOfferPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // Campo para selecionar o automóvel
             DropdownButtonFormField<String>(
               value: selectedCar,
               items: cars.map((car) {
@@ -523,11 +537,29 @@ class _RideOfferPageState extends State<RideOfferPage> {
               decoration: const InputDecoration(labelText: 'Selecionar Automóvel'),
             ),
             const SizedBox(height: 20),
+
+            // Campo para o local de saída
+            TextField(
+              controller: departureLocationController,
+              decoration: const InputDecoration(labelText: 'Local de Saída'),
+            ),
+            const SizedBox(height: 20),
+
+            // Campo para o horário
+            TextField(
+              controller: departureTimeController,
+              decoration: const InputDecoration(labelText: 'Horário de Saída'),
+            ),
+            const SizedBox(height: 20),
+
+            // Campo para o destino
             TextField(
               controller: destinationController,
               decoration: const InputDecoration(labelText: 'Destino'),
             ),
             const SizedBox(height: 20),
+
+            // Campo para selecionar o número de vagas
             DropdownButtonFormField<String>(
               value: selectedSeats,
               items: List.generate(8, (index) {
@@ -544,11 +576,15 @@ class _RideOfferPageState extends State<RideOfferPage> {
               decoration: const InputDecoration(labelText: 'Vagas Disponíveis'),
             ),
             const SizedBox(height: 20),
+
+            // Campo para os pontos de parada
             TextField(
               controller: stopsController,
               decoration: const InputDecoration(labelText: 'Pontos de Parada'),
             ),
             const SizedBox(height: 20),
+
+            // Botão para oferecer a carona
             ElevatedButton(
               onPressed: () async {
                 final user = FirebaseAuth.instance.currentUser;
@@ -559,6 +595,8 @@ class _RideOfferPageState extends State<RideOfferPage> {
 
                   await ridesRef.push().set({
                     'carKey': selectedCar,
+                    'departureLocation': departureLocationController.text, // Novo campo
+                    'departureTime': departureTimeController.text, // Novo campo
                     'destination': destinationController.text,
                     'seats': selectedSeats,
                     'stops': stopsController.text,
@@ -571,6 +609,8 @@ class _RideOfferPageState extends State<RideOfferPage> {
 
                   // Limpar campos após oferecer a carona
                   setState(() {
+                    departureLocationController.clear();
+                    departureTimeController.clear();
                     destinationController.clear();
                     stopsController.clear();
                     selectedCar = null;
@@ -800,7 +840,24 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
   }
 }
 
+class ChatPage extends StatelessWidget {
+  const ChatPage({super.key});
 
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Chat'),
+      ),
+      body: const Center(
+        child: Text(
+          'O chat está em manutenção. Volte em breve!',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}
 
 class CarManagementPage extends StatefulWidget {
   const CarManagementPage({super.key});
