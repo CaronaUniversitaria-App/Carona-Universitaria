@@ -61,7 +61,7 @@ class _MyHomePageState extends State<MyHomePage> {
         user = userCredential.user;
       });
 
-      if (user != null && user!.email!.endsWith('@ufba.br')) {
+      if (user != null && user!.email!.endsWith('@gmail.com')) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -238,17 +238,6 @@ class MainScreen extends StatelessWidget {
                   ),
                 );
               },
-            ),ListTile(
-                leading: const Icon(Icons.chat),
-                title: const Text('Chat'),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ChatPage(),
-                    ),
-                  );
-                },
             ),ListTile(
                 leading: const Icon(Icons.exit_to_app),
                 title: const Text('Logout'),
@@ -593,7 +582,11 @@ class _RideOfferPageState extends State<RideOfferPage> {
                   final DatabaseReference ridesRef =
                       FirebaseDatabase.instance.ref().child('rides').child(user.uid);
 
-                  await ridesRef.push().set({
+                      final DatabaseReference chatRef =
+        FirebaseDatabase.instance.ref().child('chats');
+
+                   final rideKey = ridesRef.push().key;
+                  await ridesRef.child(rideKey!).set({
                     'carKey': selectedCar,
                     'departureLocation': departureLocationController.text, 
                     'departureTime': departureTimeController.text, 
@@ -601,7 +594,15 @@ class _RideOfferPageState extends State<RideOfferPage> {
                     'seats': selectedSeats,
                     'stops': stopsController.text,
                     'timestamp': DateTime.now().toIso8601String(),
+                    'chatId': rideKey,
                   });
+
+                  // Criar o chat associado à carona
+    await chatRef.child(rideKey).set({
+      'rideId': rideKey,
+      'messages': {}, // Inicializa a lista de mensagens vazia
+    });
+
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Carona oferecida com sucesso!')),
@@ -684,7 +685,7 @@ class _RideListPageState extends State<RideListPage> {
   }
 }
 
-  Future<void> acceptRide(Map<String, dynamic> ride) async {
+Future<void> acceptRide(Map<String, dynamic> ride) async {
   final user = FirebaseAuth.instance.currentUser;
   if (user != null) {
     final DatabaseReference rideRef = FirebaseDatabase.instance
@@ -706,10 +707,8 @@ class _RideListPageState extends State<RideListPage> {
         // Atualizar o número de vagas no banco de dados
         await rideRef.update({
           'seats': availableSeats.toString(),
+          'acceptedBy': user.uid, // Armazenar o ID do usuário que aceitou a carona
         });
-
-        // Adicionar o usuário que aceitou a carona
-        await rideRef.child('acceptedBy').set(user.uid);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Você aceitou a carona para ${ride['destination']}')),
@@ -723,6 +722,40 @@ class _RideListPageState extends State<RideListPage> {
           const SnackBar(content: Text('Não há mais vagas disponíveis para esta carona.')),
         );
       }
+    }
+  }
+}
+
+Future<void> cancelAcceptedRide(Map<String, dynamic> ride) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    final DatabaseReference rideRef = FirebaseDatabase.instance
+        .ref()
+        .child('rides')
+        .child(ride['userId'])
+        .child(ride['rideId']);
+
+    final DataSnapshot rideSnapshot = await rideRef.get();
+
+    if (rideSnapshot.exists) {
+      final Map<String, dynamic> rideData = Map<String, dynamic>.from(rideSnapshot.value as Map);
+      int availableSeats = int.tryParse(rideData['seats'] ?? '0') ?? 0;
+
+      // Incrementar o número de vagas disponíveis
+      availableSeats += 1;
+
+      // Atualizar o número de vagas no banco de dados e remover o ID do usuário que aceitou a carona
+      await rideRef.update({
+        'seats': availableSeats.toString(),
+        'acceptedBy': null, // Remover o ID do usuário que aceitou a carona
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Você cancelou a carona para ${ride['destination']}')),
+      );
+
+      // Recarregar a lista de caronas para refletir as mudanças
+      loadRides();
     }
   }
 }
@@ -750,7 +783,7 @@ class _RideListPageState extends State<RideListPage> {
     }
   }
 
- @override
+@override
 Widget build(BuildContext context) {
   return Scaffold(
     appBar: AppBar(title: const Text('Caronas Disponíveis')),
@@ -761,6 +794,7 @@ Widget build(BuildContext context) {
         final isCurrentUserRide = ride['userId'] == currentUser?.uid;
         final availableSeats = int.tryParse(ride['seats'] ?? '0') ?? 0;
         final isRideFull = availableSeats <= 0;
+        final isRideAcceptedByCurrentUser = ride['acceptedBy'] == currentUser?.uid;
 
         return ListTile(
           title: Text('Destino: ${ride['destination']}'),
@@ -779,21 +813,142 @@ Widget build(BuildContext context) {
                 ),
             ],
           ),
-          trailing: isCurrentUserRide
-              ? ElevatedButton(
-                  onPressed: () => cancelRide(ride),
-                  child: const Text('Cancelar Carona'),
-                )
-              : ElevatedButton(
-                  onPressed: isRideFull ? null : () => acceptRide(ride),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!isCurrentUserRide && !isRideFull && !isRideAcceptedByCurrentUser)
+                ElevatedButton(
+                  onPressed: () => acceptRide(ride),
                   child: const Text('Aceitar Carona'),
                 ),
+              if (isRideAcceptedByCurrentUser)
+                ElevatedButton(
+                  onPressed: () => cancelAcceptedRide(ride),
+                  child: const Text('Cancelar Carona'),
+                ),
+              IconButton(
+                icon: const Icon(Icons.chat),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChatScreen(rideId: ride['rideId']),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         );
       },
     ),
   );
 }
 
+}
+
+class ChatScreen extends StatefulWidget {
+  final String rideId;
+
+  const ChatScreen({super.key, required this.rideId});
+
+  @override
+  _ChatScreenState createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
+  final TextEditingController messageController = TextEditingController();
+  List<Map<String, dynamic>> messages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadMessages();
+  }
+
+  Future<void> loadMessages() async {
+    final DatabaseReference chatRef =
+        FirebaseDatabase.instance.ref().child('chats').child(widget.rideId).child('messages');
+
+    chatRef.onValue.listen((event) {
+      if (event.snapshot.exists) {
+        final Map<dynamic, dynamic> messagesMap = event.snapshot.value as Map<dynamic, dynamic>;
+        setState(() {
+          messages = messagesMap.entries.map((entry) {
+            return {
+              'id': entry.key,
+              ...Map<String, dynamic>.from(entry.value as Map),
+            };
+          }).toList();
+        });
+      }
+    });
+  }
+
+  Future<void> sendMessage() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && messageController.text.isNotEmpty) {
+      final DatabaseReference chatRef =
+          FirebaseDatabase.instance.ref().child('chats').child(widget.rideId).child('messages');
+
+      await chatRef.push().set({
+        'senderId': user.uid,
+        'senderName': user.displayName,
+        'message': messageController.text,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      messageController.clear();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Chat da Carona'),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final message = messages[index];
+                return ListTile(
+                  title: Text(message['senderName'] ?? 'Usuário Desconhecido'),
+                  subtitle: Text(message['message']),
+                  trailing: Text(
+                    DateTime.parse(message['timestamp']).toLocal().toString(),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: messageController,
+                    decoration: const InputDecoration(
+                      hintText: 'Digite sua mensagem...',
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  onPressed: sendMessage,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class RideHistoryPage extends StatefulWidget {
@@ -865,25 +1020,6 @@ class _RideHistoryPageState extends State<RideHistoryPage> {
                 );
               },
             ),
-    );
-  }
-}
-
-class ChatPage extends StatelessWidget {
-  const ChatPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chat'),
-      ),
-      body: const Center(
-        child: Text(
-          'O chat está em manutenção. Volte em breve!',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-      ),
     );
   }
 }
