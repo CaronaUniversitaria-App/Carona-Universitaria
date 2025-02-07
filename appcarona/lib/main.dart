@@ -685,22 +685,47 @@ class _RideListPageState extends State<RideListPage> {
 }
 
   Future<void> acceptRide(Map<String, dynamic> ride) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final DatabaseReference rideRef = FirebaseDatabase.instance
-          .ref()
-          .child('rides')
-          .child(ride['userId'])
-          .child(ride['rideId'])
-          .child('acceptedBy');
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    final DatabaseReference rideRef = FirebaseDatabase.instance
+        .ref()
+        .child('rides')
+        .child(ride['userId'])
+        .child(ride['rideId']);
 
-      await rideRef.set(user.uid);
+    final DataSnapshot rideSnapshot = await rideRef.get();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Você aceitou a carona para ${ride['destination']}')),
-      );
+    if (rideSnapshot.exists) {
+      final Map<String, dynamic> rideData = Map<String, dynamic>.from(rideSnapshot.value as Map);
+      int availableSeats = int.tryParse(rideData['seats'] ?? '0') ?? 0;
+
+      if (availableSeats > 0) {
+        // Reduzir o número de vagas disponíveis
+        availableSeats -= 1;
+
+        // Atualizar o número de vagas no banco de dados
+        await rideRef.update({
+          'seats': availableSeats.toString(),
+        });
+
+        // Adicionar o usuário que aceitou a carona
+        await rideRef.child('acceptedBy').set(user.uid);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Você aceitou a carona para ${ride['destination']}')),
+        );
+
+        // Recarregar a lista de caronas para refletir as mudanças
+        loadRides();
+      } else {
+        // Se não houver mais vagas, informar o usuário
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não há mais vagas disponíveis para esta carona.')),
+        );
+      }
     }
   }
+}
 
   Future<void> cancelRide(Map<String, dynamic> ride) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -725,7 +750,7 @@ class _RideListPageState extends State<RideListPage> {
     }
   }
 
-  @override
+ @override
 Widget build(BuildContext context) {
   return Scaffold(
     appBar: AppBar(title: const Text('Caronas Disponíveis')),
@@ -733,7 +758,10 @@ Widget build(BuildContext context) {
       itemCount: rides.length,
       itemBuilder: (context, index) {
         final ride = rides[index];
-        final isCurrentUserRide = ride['userId'] == currentUser?.uid; 
+        final isCurrentUserRide = ride['userId'] == currentUser?.uid;
+        final availableSeats = int.tryParse(ride['seats'] ?? '0') ?? 0;
+        final isRideFull = availableSeats <= 0;
+
         return ListTile(
           title: Text('Destino: ${ride['destination']}'),
           subtitle: Column(
@@ -744,6 +772,11 @@ Widget build(BuildContext context) {
               Text('Vagas: ${ride['seats']}'),
               Text('Paradas: ${ride['stops']}'),
               Text('Oferecido por: ${ride['userName']}'),
+              if (isRideFull)
+                const Text(
+                  'Não há mais vagas disponíveis.',
+                  style: TextStyle(color: Colors.red),
+                ),
             ],
           ),
           trailing: isCurrentUserRide
@@ -752,7 +785,7 @@ Widget build(BuildContext context) {
                   child: const Text('Cancelar Carona'),
                 )
               : ElevatedButton(
-                  onPressed: () => acceptRide(ride),
+                  onPressed: isRideFull ? null : () => acceptRide(ride),
                   child: const Text('Aceitar Carona'),
                 ),
         );
@@ -760,6 +793,7 @@ Widget build(BuildContext context) {
     ),
   );
 }
+
 }
 
 class RideHistoryPage extends StatefulWidget {
