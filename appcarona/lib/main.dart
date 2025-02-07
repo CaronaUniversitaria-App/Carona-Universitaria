@@ -52,46 +52,42 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<User?> signInWithGoogle(BuildContext context) async {
-  try {
-    GoogleAuthProvider googleProvider = GoogleAuthProvider();
-    final UserCredential userCredential =
-        await FirebaseAuth.instance.signInWithPopup(googleProvider);
+    try {
+      GoogleAuthProvider googleProvider = GoogleAuthProvider();
+      final UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithPopup(googleProvider);
 
-    setState(() {
-      user = userCredential.user;
-    });
-
-    // Verificar se o e-mail termina com "@ufba.br"
-    if (user != null && user!.email!.endsWith('@ufba.br')) {
-      // Redireciona para a tela principal
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => MainScreen(user: user),
-        ),
-      );
-    } else {
-      // Desloga o usuário caso o e-mail não seja permitido
-      await FirebaseAuth.instance.signOut();
       setState(() {
-        user = null;
+        user = userCredential.user;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Apenas e-mails da UFBA são permitidos.'),
-        ),
-      );
-    }
-    return user;
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Erro ao fazer login: $e')),
-    );
-    return null;
-  }
-}
+      if (user != null && user!.email!.endsWith('@ufba.br')) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MainScreen(user: user),
+          ),
+        );
+      } else {
+        await FirebaseAuth.instance.signOut();
+        setState(() {
+          user = null;
+        });
 
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Apenas e-mails da UFBA são permitidos.'),
+          ),
+        );
+      }
+      return user;
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao fazer login: $e')),
+      );
+      return null;
+    }
+  }
 
   Future<void> signOut() async {
     await FirebaseAuth.instance.signOut();
@@ -232,50 +228,60 @@ class MainScreen extends StatelessWidget {
               },
             ),
             ListTile(
-  leading: const Icon(Icons.history),
-  title: const Text('Histórico de Caronas'),
-  onTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const RideHistoryPage(),
-      ),
-    );
-  },
-),ListTile(
-        leading: const Icon(Icons.chat),
-        title: const Text('Chat'),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ChatPage(),
-            ),
-          );
-        },
-      ),
-            ListTile(
-              leading: const Icon(Icons.exit_to_app),
-              title: const Text('Logout'),
+              leading: const Icon(Icons.history),
+              title: const Text('Histórico de Caronas'),
               onTap: () {
-                FirebaseAuth.instance.signOut();
-                Navigator.pushReplacement(
+                Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const MyHomePage(title: 'Carona UFBA'),
+                    builder: (context) => const RideHistoryPage(),
                   ),
                 );
               },
-            ),
-          ],
+            ),ListTile(
+                leading: const Icon(Icons.chat),
+                title: const Text('Chat'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ChatPage(),
+                    ),
+                  );
+                },
+            ),ListTile(
+                leading: const Icon(Icons.exit_to_app),
+                title: const Text('Logout'),
+                onTap: () {
+                  FirebaseAuth.instance.signOut();
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MyHomePage(title: 'Carona UFBA'),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
-      ),
-      body: const Center(
-        child: Text(
+        body: const Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.directions_car,
+          size: 100,
+          color: Colors.blue,
+        ),
+        SizedBox(height: 20),
+        Text(
           'Bem-vindo ao Carona UFBA!',
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
-      ),
+      ],
+    ),
+  ),
     );
   }
 }
@@ -380,12 +386,11 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    loadProfile(); // Carrega os dados do perfil
+    loadProfile(); 
   }
 
   Future<void> loadProfile() async {
     final user = FirebaseAuth.instance.currentUser;
-
     if (user != null) {
       final DatabaseReference userRef =
           FirebaseDatabase.instance.ref().child('users').child(user.uid);
@@ -406,7 +411,6 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Meu Perfil')),
       body: Padding(
@@ -448,7 +452,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       FirebaseDatabase.instance.ref().child('users').child(user.uid);
 
                   await userRef.set({
-                    'name': user.displayName, // Nome obtido do Firebase
+                    'name': user.displayName,
                     'course': selectedCourse,
                     'shift': shiftController.text,
                     'photo': profilePhoto,
@@ -469,7 +473,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-
 class RideOfferPage extends StatefulWidget {
   const RideOfferPage({super.key});
 
@@ -480,8 +483,8 @@ class RideOfferPage extends StatefulWidget {
 class _RideOfferPageState extends State<RideOfferPage> {
   final TextEditingController destinationController = TextEditingController();
   final TextEditingController stopsController = TextEditingController();
-  final TextEditingController departureLocationController = TextEditingController(); // Novo campo: Local de saída
-  final TextEditingController departureTimeController = TextEditingController(); // Novo campo: Horário
+  final TextEditingController departureLocationController = TextEditingController(); 
+  final TextEditingController departureTimeController = TextEditingController();
 
   List<Map<String, String>> cars = [];
   String? selectedCar;
@@ -505,7 +508,7 @@ class _RideOfferPageState extends State<RideOfferPage> {
       if (snapshot.exists) {
         final loadedCars = (snapshot.value as Map).entries.map((entry) {
           final car = Map<String, String>.from(entry.value as Map);
-          car['key'] = entry.key; // Adiciona a chave do carro
+          car['key'] = entry.key;
           return car;
         }).toList();
 
@@ -524,7 +527,6 @@ class _RideOfferPageState extends State<RideOfferPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Campo para selecionar o automóvel
             DropdownButtonFormField<String>(
               value: selectedCar,
               items: cars.map((car) {
@@ -542,34 +544,30 @@ class _RideOfferPageState extends State<RideOfferPage> {
             ),
             const SizedBox(height: 20),
 
-            // Campo para o local de saída
             TextField(
               controller: departureLocationController,
               decoration: const InputDecoration(labelText: 'Local de Saída'),
             ),
             const SizedBox(height: 20),
 
-            // Campo para o horário
             TextField(
               controller: departureTimeController,
               decoration: const InputDecoration(labelText: 'Horário de Saída'),
             ),
             const SizedBox(height: 20),
 
-            // Campo para o destino
             TextField(
               controller: destinationController,
               decoration: const InputDecoration(labelText: 'Destino'),
             ),
             const SizedBox(height: 20),
 
-            // Campo para selecionar o número de vagas
             DropdownButtonFormField<String>(
               value: selectedSeats,
-              items: List.generate(8, (index) {
+              items: List.generate(7, (index) {
                 return DropdownMenuItem(
-                  value: index.toString(),
-                  child: Text('$index vagas'),
+                  value: (index + 1).toString(),
+                  child: Text('${index + 1} vagas'),
                 );
               }),
               onChanged: (value) {
@@ -581,14 +579,12 @@ class _RideOfferPageState extends State<RideOfferPage> {
             ),
             const SizedBox(height: 20),
 
-            // Campo para os pontos de parada
             TextField(
               controller: stopsController,
               decoration: const InputDecoration(labelText: 'Pontos de Parada'),
             ),
             const SizedBox(height: 20),
 
-            // Botão para oferecer a carona
             ElevatedButton(
               onPressed: () async {
                 final user = FirebaseAuth.instance.currentUser;
@@ -599,8 +595,8 @@ class _RideOfferPageState extends State<RideOfferPage> {
 
                   await ridesRef.push().set({
                     'carKey': selectedCar,
-                    'departureLocation': departureLocationController.text, // Novo campo
-                    'departureTime': departureTimeController.text, // Novo campo
+                    'departureLocation': departureLocationController.text, 
+                    'departureTime': departureTimeController.text, 
                     'destination': destinationController.text,
                     'seats': selectedSeats,
                     'stops': stopsController.text,
@@ -611,7 +607,6 @@ class _RideOfferPageState extends State<RideOfferPage> {
                     const SnackBar(content: Text('Carona oferecida com sucesso!')),
                   );
 
-                  // Limpar campos após oferecer a carona
                   setState(() {
                     departureLocationController.clear();
                     departureTimeController.clear();
@@ -645,7 +640,7 @@ class RideListPage extends StatefulWidget {
 
 class _RideListPageState extends State<RideListPage> {
   List<Map<String, dynamic>> rides = [];
-  final User? currentUser = FirebaseAuth.instance.currentUser; // Usuário logado
+  final User? currentUser = FirebaseAuth.instance.currentUser; 
 
   @override
   void initState() {
@@ -654,46 +649,44 @@ class _RideListPageState extends State<RideListPage> {
   }
 
   Future<void> loadRides() async {
-    final DatabaseReference ridesRef = FirebaseDatabase.instance.ref().child('rides');
-    final DatabaseReference usersRef = FirebaseDatabase.instance.ref().child('users');
+  final DatabaseReference ridesRef = FirebaseDatabase.instance.ref().child('rides');
+  final DatabaseReference usersRef = FirebaseDatabase.instance.ref().child('users');
 
-    final DataSnapshot ridesSnapshot = await ridesRef.get();
+  final DataSnapshot ridesSnapshot = await ridesRef.get();
 
-    if (ridesSnapshot.exists) {
-      final Map<dynamic, dynamic> ridesMap = ridesSnapshot.value as Map<dynamic, dynamic>;
-      final List<Map<String, dynamic>> loadedRides = [];
+  if (ridesSnapshot.exists) {
+    final Map<dynamic, dynamic> ridesMap = ridesSnapshot.value as Map<dynamic, dynamic>;
+    final List<Map<String, dynamic>> loadedRides = [];
 
-      for (var userId in ridesMap.keys) {
-        final userRides = ridesMap[userId];
-        if (userRides != null) {
-          final Map<dynamic, dynamic> userRidesMap = userRides as Map<dynamic, dynamic>;
+    for (var userId in ridesMap.keys) {
+      final userRides = ridesMap[userId];
+      if (userRides != null) {
+        final Map<dynamic, dynamic> userRidesMap = userRides as Map<dynamic, dynamic>;
 
-          // Buscar o nome do usuário
-          final DataSnapshot userSnapshot = await usersRef.child(userId).get();
-          final String userName = userSnapshot.child('name').value as String? ?? 'Usuário Desconhecido';
+        final DataSnapshot userSnapshot = await usersRef.child(userId).get();
+        final String userName = userSnapshot.child('name').value as String? ?? 'Usuário Desconhecido';
 
-          for (var rideId in userRidesMap.keys) {
-            final rideData = userRidesMap[rideId];
-            loadedRides.add({
-              'userId': userId,
-              'rideId': rideId,
-              'userName': userName, // Adicionar o nome do usuário
-              ...Map<String, dynamic>.from(rideData as Map),
-            });
-          }
+        for (var rideId in userRidesMap.keys) {
+          final rideData = userRidesMap[rideId];
+          loadedRides.add({
+            'userId': userId,
+            'rideId': rideId,
+            'userName': userName,
+            ...Map<String, dynamic>.from(rideData as Map),
+          });
         }
       }
-
-      setState(() {
-        rides = loadedRides;
-      });
     }
+
+    setState(() {
+      rides = loadedRides;
+    });
   }
+}
 
   Future<void> acceptRide(Map<String, dynamic> ride) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      // Adicionar o ID do usuário que aceitou a carona
       final DatabaseReference rideRef = FirebaseDatabase.instance
           .ref()
           .child('rides')
@@ -715,16 +708,13 @@ class _RideListPageState extends State<RideListPage> {
       final DatabaseReference ridesRef = FirebaseDatabase.instance.ref().child('rides');
       final DatabaseReference historyRef = FirebaseDatabase.instance.ref().child('history');
 
-      // Mover a carona para o histórico
       await historyRef.child(ride['userId']).child(ride['rideId']).set({
         ...ride,
-        'status': 'canceled', // Adicionar status de cancelada
+        'status': 'canceled', 
       });
 
-      // Remover a carona da lista de caronas ativas
       await ridesRef.child(ride['userId']).child(ride['rideId']).remove();
 
-      // Atualizar a lista de caronas
       setState(() {
         rides.removeWhere((r) => r['rideId'] == ride['rideId']);
       });
@@ -736,39 +726,40 @@ class _RideListPageState extends State<RideListPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Caronas Disponíveis')),
-      body: ListView.builder(
-        itemCount: rides.length,
-        itemBuilder: (context, index) {
-          final ride = rides[index];
-          final isCurrentUserRide = ride['userId'] == currentUser?.uid; // Verifica se a carona é do próprio usuário
-
-          return ListTile(
-            title: Text('Destino: ${ride['destination']}'),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Vagas: ${ride['seats']}'),
-                Text('Paradas: ${ride['stops']}'),
-                Text('Oferecido por: ${ride['userName']}'),
-              ],
-            ),
-            trailing: isCurrentUserRide
-                ? ElevatedButton(
-                    onPressed: () => cancelRide(ride),
-                    child: const Text('Cancelar Carona'),
-                  )
-                : ElevatedButton(
-                    onPressed: () => acceptRide(ride),
-                    child: const Text('Aceitar Carona'),
-                  ),
-          );
-        },
-      ),
-    );
-  }
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: const Text('Caronas Disponíveis')),
+    body: ListView.builder(
+      itemCount: rides.length,
+      itemBuilder: (context, index) {
+        final ride = rides[index];
+        final isCurrentUserRide = ride['userId'] == currentUser?.uid; 
+        return ListTile(
+          title: Text('Destino: ${ride['destination']}'),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Local de Saída: ${ride['departureLocation']}'),
+              Text('Horário de Saída: ${ride['departureTime']}'),
+              Text('Vagas: ${ride['seats']}'),
+              Text('Paradas: ${ride['stops']}'),
+              Text('Oferecido por: ${ride['userName']}'),
+            ],
+          ),
+          trailing: isCurrentUserRide
+              ? ElevatedButton(
+                  onPressed: () => cancelRide(ride),
+                  child: const Text('Cancelar Carona'),
+                )
+              : ElevatedButton(
+                  onPressed: () => acceptRide(ride),
+                  child: const Text('Aceitar Carona'),
+                ),
+        );
+      },
+    ),
+  );
+}
 }
 
 class RideHistoryPage extends StatefulWidget {
@@ -780,7 +771,7 @@ class RideHistoryPage extends StatefulWidget {
 
 class _RideHistoryPageState extends State<RideHistoryPage> {
   List<Map<String, dynamic>> historyRides = [];
-  final User? currentUser = FirebaseAuth.instance.currentUser; // Usuário logado
+  final User? currentUser = FirebaseAuth.instance.currentUser; 
 
   @override
   void initState() {
