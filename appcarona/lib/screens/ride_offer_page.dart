@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:appcarona/models/car.dart';
 import 'package:appcarona/controllers/ride_offer_controller.dart';
-import 'package:appcarona/widgets/ride_offer_form.dart';
+import 'package:appcarona/widgets/ride_offer_form.dart' show RideOfferForm;
+import 'package:appcarona/repositories/ride_repository.dart';
+import 'package:appcarona/repositories/car_repository.dart';
 
 class RideOfferPage extends StatefulWidget {
   const RideOfferPage({super.key});
@@ -12,7 +14,10 @@ class RideOfferPage extends StatefulWidget {
 
 class _RideOfferPageState extends State<RideOfferPage> {
   List<Car> cars = [];
-  final RideOfferController _controller = RideOfferController();
+  final RideOfferController _controller = RideOfferController(
+    rideRepository: RideRepository(),
+    carRepository: CarRepository(),
+  ); // Correct
 
   @override
   void initState() {
@@ -37,7 +42,7 @@ class _RideOfferPageState extends State<RideOfferPage> {
         child: RideOfferForm(
           cars: cars,
           onRideOffered: () {
-            // Callback to refresh the list or perform other actions after offering a ride
+            // Callback para atualizar a lista ou realizar outra ação após oferecer a carona.
           },
         ),
       ),

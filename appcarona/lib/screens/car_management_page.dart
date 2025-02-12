@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:appcarona/models/car.dart';
 import 'package:appcarona/controllers/car_management_controller.dart';
+import 'package:appcarona/repositories/car_repository.dart';
 import 'package:appcarona/widgets/car_list.dart';
 import 'package:appcarona/widgets/car_form.dart';
 
@@ -13,7 +14,7 @@ class CarManagementPage extends StatefulWidget {
 
 class _CarManagementPageState extends State<CarManagementPage> {
   final List<Car> cars = [];
-  final CarManagementController _controller = CarManagementController();
+  final CarManagementController _controller = CarManagementController(CarRepository());
 
   @override
   void initState() {
@@ -22,10 +23,8 @@ class _CarManagementPageState extends State<CarManagementPage> {
   }
 
   Future<void> loadCars() async {
-    final loadedCars = await _controller.loadCars();
     setState(() {
       cars.clear();
-      cars.addAll(loadedCars);
     });
   }
 
@@ -37,14 +36,19 @@ class _CarManagementPageState extends State<CarManagementPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            CarForm(onCarAdded: () {
-              loadCars();
-            }),
+            CarForm(
+              onCarAdded: () {
+                loadCars();
+              },
+            ),
             const SizedBox(height: 20),
             Expanded(
-              child: CarList(cars: cars, onCarDeleted: () {
-                loadCars();
-              }),
+              child: CarList(
+                cars: cars,
+                onCarDeleted: () {
+                  loadCars();
+                },
+              ),
             ),
           ],
         ),

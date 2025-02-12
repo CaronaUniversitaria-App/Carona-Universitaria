@@ -1,22 +1,33 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:appcarona/models/car.dart';
 import 'package:appcarona/repositories/car_repository.dart';
 
-class CarManagementController {
-  final CarRepository _carRepository = CarRepository();
+class CarManagementController extends StateNotifier<List<Car>> {
+  final CarRepository _carRepository;
 
-  Future<List<Car>> loadCars() async {
-    return await _carRepository.loadCars();
+  CarManagementController(this._carRepository) : super([]) {
+    loadCars();
+  }
+
+  Future<void> loadCars() async {
+    state = await _carRepository.loadCars();
   }
 
   Future<void> addCar(Car car) async {
     await _carRepository.addCar(car);
+    loadCars(); // Atualiza a lista de carros
   }
-
   Future<void> removeCar(String carKey) async {
-    await _carRepository.removeCar(carKey);
+    await _carRepository.removeCar(carKey); // Remove o carro do repositório
+    loadCars(); // Atualiza a lista de carros
   }
-
-  Future<void> updateCar(String carKey, Car car) async {
-    await _carRepository.updateCar(carKey, car);
+  Future<List<Car>> loadedCars() async {
+    // Assuming _carRepository.loadCars() returns Future<List<Car>>
+    return await _carRepository.loadCars(); // Return the list of cars!
   }
 }
+
+final carManagementProvider =
+    StateNotifierProvider<CarManagementController, List<Car>>(
+  (ref) => CarManagementController(CarRepository()),
+);

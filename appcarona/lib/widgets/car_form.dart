@@ -1,23 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:appcarona/models/car.dart';
 import 'package:appcarona/controllers/car_management_controller.dart';
 
-class CarForm extends StatefulWidget {
+class CarForm extends ConsumerWidget {
   final VoidCallback onCarAdded;
   const CarForm({super.key, required this.onCarAdded});
 
   @override
-  _CarFormState createState() => _CarFormState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plateController = TextEditingController();
+    final nameController = TextEditingController();
+    final colorController = TextEditingController();
 
-class _CarFormState extends State<CarForm> {
-  final TextEditingController plateController = TextEditingController();
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController colorController = TextEditingController();
-  final CarManagementController controller = CarManagementController();
-
-  @override
-  Widget build(BuildContext context) {
     return Column(
       children: [
         TextField(controller: plateController, decoration: const InputDecoration(labelText: 'Placa')),
@@ -31,8 +26,9 @@ class _CarFormState extends State<CarForm> {
               color: colorController.text,
             );
 
-            await controller.addCar(car);
-            widget.onCarAdded();
+            await ref.read(carManagementProvider.notifier).addCar(car); // ✅ Correção aqui!
+            
+            onCarAdded();
             plateController.clear();
             nameController.clear();
             colorController.clear();
